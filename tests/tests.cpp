@@ -210,6 +210,45 @@ TEST_CASE( "Test GetBulkRequestPDU", "[snmp]"){
     REQUIRE( responsePacket->varbindList.at(1).type == ENDOFMIBVIEW );
 }
 
+TEST_CASE( "Test GetBulk non-repeaters return callback OID", "[snmp]"){
+    // Non-repeaters in GETBULK use GETNEXT semantics and MUST return
+    // the found callback's OID, not the requested OID
+    std::deque<ValueCallback*> callbacks;
+
+    int testInt = 42;
+    // Register .5.1.0 (scalar with instance suffix)
+    callbacks.push_back(new IntegerCallback(new SortableOIDType(".1.3.6.1.4.1.5.1.0"), &testInt));
+    callbacks.push_back(new IntegerCallback(new SortableOIDType(".1.3.6.1.4.1.5.2.0"), &testInt));
+
+    // Build request asking for .5.1 (without .0) as a non-repeater
+    SNMPPacket *requestPacket = new SNMPPacket();
+    requestPacket->setPDUType(GetBulkRequestPDU);
+    requestPacket->setCommunityString("public");
+    requestPacket->setRequestID(12345);
+    requestPacket->setVersion(SNMP_VERSION_2C);
+    requestPacket->errorStatus.nonRepeaters = 1;
+    requestPacket->errorIndex.maxRepititions = 1;
+    requestPacket->varbindList.push_back(VarBind(
+        std::make_shared<SortableOIDType>(".1.3.6.1.4.1.5.1"),
+        std::make_shared<NullType>()));
+
+    uint8_t buffer[500];
+    int buf_len = requestPacket->serialiseInto(buffer, 500);
+    REQUIRE( buf_len > 0 );
+
+    int responseLength = 0;
+    REQUIRE( handlePacket(buffer, buf_len, &responseLength, 500, callbacks, (char*)"public", (char*)"private") == SNMP_GETBULK_OCCURRED );
+
+    SNMPPacket* responsePacket = new SNMPPacket();
+    REQUIRE( responsePacket->parseFrom(buffer, responseLength) == SNMP_ERROR_OK );
+
+    REQUIRE( responsePacket->varbindList.size() == 1 );
+    // Response OID must be .5.1.0 (the callback's OID), NOT .5.1 (the request OID)
+    REQUIRE( responsePacket->varbindList.at(0).oid->string() == ".1.3.6.1.4.1.5.1.0" );
+    REQUIRE( responsePacket->varbindList.at(0).type == INTEGER );
+    REQUIRE( std::static_pointer_cast<IntegerType>(responsePacket->varbindList.at(0).value)->_value == 42 );
+}
+
 TEST_CASE( "Test SetRequestPDU", "[snmp]" ){
     std::deque<ValueCallback*> callbacks;
 
