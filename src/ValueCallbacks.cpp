@@ -45,6 +45,15 @@ ValueCallback* ValueCallback::findCallback(std::deque<ValueCallback*> &callbacks
             }
             return callback;
         }
+
+        if(walk && oid->isOIDBefore(callback->OID)){
+            // The requested OID falls before this callback in lexicographic order,
+            // so this callback is the next available OID (handles gaps between registered OIDs)
+            if(foundAt){
+                *foundAt = i;
+            }
+            return callback;
+        }
     }
     return nullptr;
 }
@@ -200,6 +209,22 @@ SNMP_ERROR_STATUS Counter64Callback::setTypeWithValue(BER_CONTAINER* rawValue){
     ASSERT_VALID_SETTABLE_VALUE(this->value);
 
     Counter64* val = static_cast<Counter64*>(rawValue);
+    *this->value = val->_value;
+
+    return NO_ERROR;
+}
+
+std::shared_ptr<BER_CONTAINER> NetworkAddressCallback::buildTypeWithValue(){
+    ASSERT_VALID_VALUE(this->value);
+
+    return std::make_shared<NetworkAddress>(*this->value);
+}
+
+SNMP_ERROR_STATUS NetworkAddressCallback::setTypeWithValue(BER_CONTAINER* rawValue){
+    ASSERT_CALLBACK_SETTABLE();
+    ASSERT_VALID_SETTABLE_VALUE(this->value);
+
+    NetworkAddress* val = static_cast<NetworkAddress*>(rawValue);
     *this->value = val->_value;
 
     return NO_ERROR;

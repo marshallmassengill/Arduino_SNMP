@@ -212,6 +212,9 @@ class OIDType: public BER_CONTAINER {
             std::equal(oid->data.rbegin(), oid->data.rend(), this->data.rbegin() + (this->data.size() - oid->data.size()));
     }
 
+    // Returns true if this OID comes before 'other' in SNMP lexicographic order
+    bool isOIDBefore(const OIDType* other) const;
+
   protected:
     int serialise(uint8_t* buf, size_t max_len) override;
     int fromBuffer(const uint8_t *buf, size_t max_len) override;

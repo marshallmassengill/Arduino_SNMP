@@ -191,6 +191,29 @@ const std::vector<unsigned long> SortableOIDType::generateSortingMap() const {
     return map;
 }
 
+bool OIDType::isOIDBefore(const OIDType* other) const {
+    if(this->data.empty()) return false;
+    if(other->data.empty()) return true;
+
+    const uint8_t* ptr1 = this->data.data() + 1;
+    int len1 = this->data.size() - 1;
+    const uint8_t* ptr2 = other->data.data() + 1;
+    int len2 = other->data.size() - 1;
+
+    while(len1 > 0 && len2 > 0){
+        long item1, item2;
+        size_t s1 = decode_ber_longform_integer(ptr1, &item1, len1);
+        size_t s2 = decode_ber_longform_integer(ptr2, &item2, len2);
+        if(item1 != item2){
+            return item1 < item2;
+        }
+        ptr1 += s1; len1 -= s1;
+        ptr2 += s2; len2 -= s2;
+    }
+
+    return len1 < len2;
+}
+
 int NullType::fromBuffer(const uint8_t *, size_t){
     _length = 0;
     return 2;
