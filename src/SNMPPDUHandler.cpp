@@ -110,7 +110,7 @@ bool handleGetBulkRequestPDU(std::deque<ValueCallback*> &callbacks, std::deque<V
                 outResponseList.emplace_back(callback->OID, GEN_ERR);
                 continue;   
             }
-            outResponseList.emplace_back(requestVarBind, value);
+            outResponseList.emplace_back(callback->OID, value);
         }
     }
 
