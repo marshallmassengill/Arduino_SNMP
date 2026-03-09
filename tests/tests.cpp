@@ -414,6 +414,46 @@ TEST_CASE( "SNMPInform ", "[snmp]"){
 
 }
 
+TEST_CASE( "Test GetNext with OID gaps", "[snmp]"){
+    // Test that GETNEXT correctly returns the next OID even when
+    // the requested OID falls in a gap between registered handlers
+    std::deque<ValueCallback*> callbacks;
+
+    int val1 = 10, val2 = 20, val3 = 30;
+    // Register handlers with gaps: .5.1, .5.3, .5.5 (missing .5.2, .5.4)
+    callbacks.push_back(new IntegerCallback(new SortableOIDType(".1.3.6.1.4.1.5.1"), &val1));
+    callbacks.push_back(new IntegerCallback(new SortableOIDType(".1.3.6.1.4.1.5.3"), &val2));
+    callbacks.push_back(new IntegerCallback(new SortableOIDType(".1.3.6.1.4.1.5.5"), &val3));
+
+    // GETNEXT on .5.1 should return .5.3 (next registered OID, exact match then next)
+    ValueCallback* found = ValueCallback::findCallback(callbacks, new OIDType(".1.3.6.1.4.1.5.1"), true);
+    REQUIRE( found != nullptr );
+    REQUIRE( found->OID->string() == ".1.3.6.1.4.1.5.3" );
+
+    // GETNEXT on .5.2 should return .5.3 (gap: .5.2 is between .5.1 and .5.3)
+    found = ValueCallback::findCallback(callbacks, new OIDType(".1.3.6.1.4.1.5.2"), true);
+    REQUIRE( found != nullptr );
+    REQUIRE( found->OID->string() == ".1.3.6.1.4.1.5.3" );
+
+    // GETNEXT on .5.4 should return .5.5 (gap: .5.4 is between .5.3 and .5.5)
+    found = ValueCallback::findCallback(callbacks, new OIDType(".1.3.6.1.4.1.5.4"), true);
+    REQUIRE( found != nullptr );
+    REQUIRE( found->OID->string() == ".1.3.6.1.4.1.5.5" );
+
+    // GETNEXT on .5.5 should return nullptr (end of MIB)
+    found = ValueCallback::findCallback(callbacks, new OIDType(".1.3.6.1.4.1.5.5"), true);
+    REQUIRE( found == nullptr );
+
+    // GETNEXT on .5.6 should return nullptr (past all registered OIDs)
+    found = ValueCallback::findCallback(callbacks, new OIDType(".1.3.6.1.4.1.5.6"), true);
+    REQUIRE( found == nullptr );
+
+    // GETNEXT on .4.9 should return .5.1 (requested OID is before all handlers)
+    found = ValueCallback::findCallback(callbacks, new OIDType(".1.3.6.1.4.1.4.9"), true);
+    REQUIRE( found != nullptr );
+    REQUIRE( found->OID->string() == ".1.3.6.1.4.1.5.1" );
+}
+
 TEST_CASE( "Test OID Validation ", "[snmp]"){
     REQUIRE( (new OIDType(".1.3.6.1.4.1.52420"))->valid );
     REQUIRE( (new OIDType(".1.3.6.1.4.1.52420."))->valid );

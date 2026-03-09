@@ -45,6 +45,15 @@ ValueCallback* ValueCallback::findCallback(std::deque<ValueCallback*> &callbacks
             }
             return callback;
         }
+
+        if(walk && oid->isOIDBefore(callback->OID)){
+            // The requested OID falls before this callback in lexicographic order,
+            // so this callback is the next available OID (handles gaps between registered OIDs)
+            if(foundAt){
+                *foundAt = i;
+            }
+            return callback;
+        }
     }
     return nullptr;
 }
